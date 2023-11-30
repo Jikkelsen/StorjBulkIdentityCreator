@@ -121,6 +121,8 @@ $CSV     = Import-Csv -Path $CSVPath
 $Total   = $CSV.Count
 $Counter = 1
 
+$ExternalStopWatch = [system.diagnostics.stopwatch]::startNew()
+
 # Create identities
 ForEach ($Row in $CSV)
 {
@@ -205,6 +207,8 @@ ForEach ($Row in $CSV)
             # Get additional information from .csv
             $DashBoardPort = $Row.DASHBOARDPORT
             $ExternalPort  = $Row.EXTERNALPORT
+            $WalletAddr    = $Row.WALLET
+            $IPAddr        = $Row.IP
 
             # Create data directory
             Write-Host "Creating docker directory"
@@ -219,6 +223,8 @@ ForEach ($Row in $CSV)
                 $ComposeContents = $ComposeContents.Replace("YOUR_NODENAME_GOES_HERE",$NodeName)
                 $ComposeContents = $ComposeContents.Replace("EXTERNAL_PORT_HERE",$ExternalPort)
                 $ComposeContents = $ComposeContents.Replace("DASH_BOARD_PORT_HERE",$DashBoardPort)
+                $ComposeContents = $ComposeContents.Replace("YOUR_WALLET_GOES_HERE",$WalletAddr)
+                $ComposeContents = $ComposeContents.Replace("YOUR_IPADDRESS_GOES_HERE",$IPAddr)
                 $Filename        = "Docker-Compose.yaml"
 
                 # Create file
@@ -263,7 +269,14 @@ ForEach ($Row in $CSV)
     $Counter++
 }
 
+$ExternalStopWatch.Stop()
 Write-Host "`n#------| Node Generation completed: Backing up |------#"
+
+# Tell user about total time
+$TimeSpent = $ExternalStopWatch.Elapsed.Minutes
+$ExternalStopWatch.Reset()
+
+Write-Host "Authorized all keys in $timespent minutes"
 
 # Backup config files
 $Date = Get-Date -Format "yyyy-MM-dd"
