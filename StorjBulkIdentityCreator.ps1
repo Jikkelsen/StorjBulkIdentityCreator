@@ -1,3 +1,4 @@
+#Requires -Version 7
 <#
    _____ _                 _   _____    _            _   _ _            _____                _
   / ____| |               | | |_   _|  | |          | | (_) |          / ____|              | |
@@ -208,6 +209,7 @@ ForEach ($Row in $CSV)
             $ExternalPort  = $Row.EXTERNALPORT
             $WalletAddr    = $Row.WALLET
             $IPAddr        = $Row.IP
+            $EmailAddr     = ($Row.Token -split ":")[0]
 
             # Create data directory
             Write-Host "Creating docker directory"
@@ -219,11 +221,12 @@ ForEach ($Row in $CSV)
                 Write-Host 'Creating "docker-compose.yaml" file ... ' -NoNewline
 
                 # Customize file
-                $ComposeContents = $ComposeContents.Replace("YOUR_NODENAME_GOES_HERE",$NodeName)
-                $ComposeContents = $ComposeContents.Replace("EXTERNAL_PORT_HERE",$ExternalPort)
-                $ComposeContents = $ComposeContents.Replace("DASH_BOARD_PORT_HERE",$DashBoardPort)
-                $ComposeContents = $ComposeContents.Replace("YOUR_WALLET_GOES_HERE",$WalletAddr)
+                $ComposeContents = $ComposeContents.Replace("YOUR_NODENAME_GOES_HERE" ,$NodeName)
+                $ComposeContents = $ComposeContents.Replace("EXTERNAL_PORT_HERE"      ,$ExternalPort)
+                $ComposeContents = $ComposeContents.Replace("DASH_BOARD_PORT_HERE"    ,$DashBoardPort)
+                $ComposeContents = $ComposeContents.Replace("YOUR_WALLET_GOES_HERE"   ,$WalletAddr)
                 $ComposeContents = $ComposeContents.Replace("YOUR_IPADDRESS_GOES_HERE",$IPAddr)
+                $ComposeContents = $ComposeContents.Replace("YOUR_EMAIL_GOES_HERE"    ,$EmailAddr)
                 $Filename        = "Docker-Compose.yaml"
 
                 # Create file
