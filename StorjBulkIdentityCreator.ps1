@@ -159,7 +159,7 @@ ForEach ($Row in $CSV)
         $TimeSpent = $StopWatch.Elapsed.Minutes
         $StopWatch.Reset()
 
-        Write-Host "Authorized key in $timespent minutes"
+        Write-Host "Authorized key in $timespent minutes" -BackgroundColor "Yellow"
         Write-Host "Correct number of files found"
 
         # Prepare variables
@@ -274,10 +274,10 @@ $ExternalStopWatch.Stop()
 Write-Host "`n#------| Node Generation completed: Backing up |------#"
 
 # Tell user about total time
-$TimeSpent = $ExternalStopWatch.Elapsed.Minutes
+$TimeSpentNew = $ExternalStopWatch.Elapsed.Minutes
 $ExternalStopWatch.Reset()
 
-Write-Host "Authorized all keys in $timespent minutes"
+Write-Host "Authorized all keys in $timespentNew minutes"
 
 # Backup config files
 $Date = Get-Date -Format "yyyy-MM-dd"
