@@ -7,10 +7,11 @@ services:
             - 'EXTERNAL_PORT_HERE:28967/udp'
             - 'DASH_BOARD_PORT_HERE:14002/tcp'
         environment:
-            - WALLET=0x41e1593bD5EDF1B8dBcd69d8c8E059dC8a9B4570
-            - EMAIL=Example@Email.com
-            - 'ADDRESS=Example_IP:Example_Port'
-            - STORAGE=500GB
+            - 'WALLET=YOUR_WALLET_GOES_HERE'
+            - 'EMAIL=YOUR_EMAIL_GOES_HERE'
+            - 'ADDRESS=YOUR_IPADDRESS_GOES_HERE:EXTERNAL_PORT_HERE'
+            - 'STORAGE=500GB'
+            - 'SETUP=true'
         user: '1000:1000'
         volumes:
             - './identity:/app/identity'
