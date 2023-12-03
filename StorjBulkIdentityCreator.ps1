@@ -15,8 +15,15 @@
     .PARAMETER PathToCSV
         Full path to .csv File
             .CSV must have a column named "NAME" and a column named "TOKEN"
+            And can have additional "DASHBOARDPORT", "EXTERNALPORT", "IP" and "WALLET"
     .PARAMETER WorkingDirectory
         Changes what directory temporary files are downloaded to.
+    .PARAMETER CreateDockerFiles
+        If set to $false, the script will not create either setup.commands or docker-compose files
+    .PARAMETER SetupCommandsFilePath
+        Path to setup commands template file
+    .PARAMETER DockerComposeFilePath
+        Path To docker compose template file
 #>
 #---------------------------------------------| PARAMETERS |---------------------------------------------#
 # Set parameters for the script here
@@ -269,6 +276,10 @@ ForEach ($Row in $CSV)
 
     $Counter++
 }
+#endregion
+
+
+#region-----------------------------------| CLEANUP AND BACKUP |-----------------------------------------#
 
 $ExternalStopWatch.Stop()
 Write-Host "`n#------| Node Generation completed: Backing up |------#"
@@ -308,5 +319,3 @@ if ($CreateDockerFiles)
 Write-Host "No opening Working directory: $WorkingDirectory"
 explorer.exe $WorkingDirectory
 #endregion
-
-#region-----------------------------------| CREATE DOCKER FILES |----------------------------------------#
