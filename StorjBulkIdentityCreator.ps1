@@ -10,20 +10,21 @@
 #>
 #------------------------------------------------| HELP |------------------------------------------------#
 <#
-    .Synopsis
+    .DESCRIPTION
         This script will take a .csv file as input, and attempt to create Storagenode pairs on it.
-    .PARAMETER PathToCSV
+    .PARAMETER CSVPath
         Full path to .csv File
             .CSV must have a column named "NAME" and a column named "TOKEN"
-            And can have additional "DASHBOARDPORT", "EXTERNALPORT", "IP" and "WALLET"
+            And "DASHBOARDPORT", "EXTERNALPORT", "IP" and "WALLET"
     .PARAMETER WorkingDirectory
         Changes what directory temporary files are downloaded to.
-    .PARAMETER CreateDockerFiles
-        If set to $false, the script will not create either setup.commands or docker-compose files
     .PARAMETER SetupCommandsFilePath
         Path to setup commands template file
     .PARAMETER DockerComposeFilePath
         Path To docker compose template file
+    .EXAMPLE
+        .\StorjBulkIdentityCreator -WorkingDirectory (Get-Location)
+
 #>
 #---------------------------------------------| PARAMETERS |---------------------------------------------#
 # Set parameters for the script here
@@ -38,10 +39,6 @@ param
     $WorkingDirectory = "$HOME\documents\StorjIdentitycreator",
 
     [Parameter()]
-    [System.Boolean]
-    $CreateDockerFiles = $true,
-
-    [Parameter()]
     [System.IO.FileInfo]
     $SetupCommandsFilePath = ".\TEMPLATE_Setup.commands",
 
@@ -53,20 +50,18 @@ param
 
 #region------------------------------------------| SETUP |-----------------------------------------------#
 
-# Make sure the template files are present if creating docker commands
-if ($CreateDockerFiles)
+# Make sure the template files are present
+try
 {
-    try
-    {
-        $SetupContents   = get-content -Path $SetupCommandsFilePath
-        $ComposeContents = get-content -Path $DockerComposeFilePath
-    }
-    catch
-    {
-        Write-host 'Make sure files "TEMPLATE_setup.commands" and "TEMPLATE_docker-compose.yaml" exist'
-        throw
-    }
+    $SetupContents   = get-content -Path $SetupCommandsFilePath
+    $ComposeContents = get-content -Path $DockerComposeFilePath
 }
+catch
+{
+    Write-host 'Make sure files "TEMPLATE_setup.commands" and "TEMPLATE_docker-compose.yaml" exist'
+    throw
+}
+
 
 # Create working directory if not exist
 if ($false -eq (Test-Path $WorkingDirectory))
@@ -93,22 +88,26 @@ else
 }
 
 # Get the installation files, if not present already
-
-
-
 Write-Host "Forcing the newest installation program"
 $ProgramFolderPath = (New-Item -ItemType "Directory" -Path "$WorkingDirectory\InstallationProgram" -Force)
 
 try
 {
+    # Hide invoke-webrequest progress. It breaks some consoles
+    $ProgressPreference = 'SilentlyContinue'
+
     Write-Host "Downloading installation files ... " -NoNewline
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    Invoke-WebRequest -Uri "https://github.com/storj/storj/releases/latest/download/identity_windows_amd64.zip" -OutFile "$ProgramFolderPath\identity_windows_amd64.zip"
+    Invoke-WebRequest -Uri "https://github.com/storj/storj/releases/latest/download/identity_windows_amd64.zip" -OutFile "$ProgramFolderPath\identity_windows_amd64.zip" | out-null
     Write-Host "OK"
 
     Write-Host "Expanding installation files  ... " -NoNewline
-    Expand-Archive -path "$ProgramFolderPath\identity_windows_amd64.zip" -DestinationPath "$ProgramFolderPath" -Force
+    Expand-Archive -path "$ProgramFolderPath\identity_windows_amd64.zip" -DestinationPath "$ProgramFolderPath" -Force | out-null
     Write-Host "OK"
+
+    # No need to hide prefrence from here
+    $ProgressPreference = 'Continue'
+    Write-Host "" -NoNewline
 }
 catch
 {
@@ -117,6 +116,7 @@ catch
     throw
 }
 #endregion
+
 
 #region-----------------------------------| CREATING IDENTITIES |----------------------------------------#
 
@@ -166,7 +166,9 @@ ForEach ($Row in $CSV)
         $TimeSpent = $StopWatch.Elapsed.Minutes
         $StopWatch.Reset()
 
-        Write-Host "Authorized key in $timespent minutes" -BackgroundColor "Yellow"
+        Write-Host ""
+        Write-Host "-- Authorized key in $timespent minutes --" -BackgroundColor "Yellow"
+        Write-Host ""
         Write-Host "Correct number of files found"
 
         # Prepare variables
@@ -200,66 +202,64 @@ ForEach ($Row in $CSV)
         catch
         {
             Write-Host "FAIL!"
-            Write-Host "Could not finalize identity back up."
+            Write-Host "Could not finalize identity. Check for duplicate names"
+            Write-host 'The identity is currently in folder: "AppData\Storj\identity\storagenode\"'
             throw
         }
 
 
         #region---------------------------------------| DOCKER DATA |--------------------------------------------#
-        if ($CreateDockerFiles)
+
+        Write-Host "Attempting to create Docker files for $Nodename"
+
+        # Get additional information from .csv
+        $DashBoardPort = $Row.DASHBOARDPORT
+        $ExternalPort  = $Row.EXTERNALPORT
+        $WalletAddr    = $Row.WALLET
+        $IPAddr        = $Row.IP
+        $EmailAddr     = ($Row.Token -split ":")[0]
+
+        # Create data directory
+        Write-Host "Creating docker directory"
+        [void]::(New-Item -ItemType "Directory" -Name "data" -Path $CreateLocation -Force)
+
+        # Create Docker compose
+        try
         {
-            Write-Host "Attempting to create Docker files for $Nodename"
+            Write-Host 'Creating "docker-compose.yaml" file ... ' -NoNewline
 
-            # Get additional information from .csv
-            $DashBoardPort = $Row.DASHBOARDPORT
-            $ExternalPort  = $Row.EXTERNALPORT
-            $WalletAddr    = $Row.WALLET
-            $IPAddr        = $Row.IP
-            $EmailAddr     = ($Row.Token -split ":")[0]
+            # Customize file
+            $ComposeContents = $ComposeContents.Replace("YOUR_NODENAME_GOES_HERE" ,$NodeName)
+            $ComposeContents = $ComposeContents.Replace("EXTERNAL_PORT_HERE"      ,$ExternalPort)
+            $ComposeContents = $ComposeContents.Replace("DASH_BOARD_PORT_HERE"    ,$DashBoardPort)
+            $ComposeContents = $ComposeContents.Replace("YOUR_WALLET_GOES_HERE"   ,$WalletAddr)
+            $ComposeContents = $ComposeContents.Replace("YOUR_IPADDRESS_GOES_HERE",$IPAddr)
+            $ComposeContents = $ComposeContents.Replace("YOUR_EMAIL_GOES_HERE"    ,$EmailAddr)
+            $Filename        = "Docker-Compose.yaml"
 
-            # Create data directory
-            Write-Host "Creating docker directory"
-            [void]::(New-Item -ItemType "Directory" -Name "data" -Path $CreateLocation -Force)
+            # Create file
+            [void]::(New-Item -ItemType "File" -name $Filename -Path $CreateLocation -Force)
+            [void]::(Add-Content -Path "$CreateLocation\Docker-Compose.yaml" -Value $ComposeContents)
+            Write-Host "OK"
+        }
+        catch
+        {
+            Write-host "Could not find compose files"
+        }
 
-            # Create Docker compose
-            try
-            {
-                Write-Host 'Creating "docker-compose.yaml" file ... ' -NoNewline
-
-                # Customize file
-                $ComposeContents = $ComposeContents.Replace("YOUR_NODENAME_GOES_HERE" ,$NodeName)
-                $ComposeContents = $ComposeContents.Replace("EXTERNAL_PORT_HERE"      ,$ExternalPort)
-                $ComposeContents = $ComposeContents.Replace("DASH_BOARD_PORT_HERE"    ,$DashBoardPort)
-                $ComposeContents = $ComposeContents.Replace("YOUR_WALLET_GOES_HERE"   ,$WalletAddr)
-                $ComposeContents = $ComposeContents.Replace("YOUR_IPADDRESS_GOES_HERE",$IPAddr)
-                $ComposeContents = $ComposeContents.Replace("YOUR_EMAIL_GOES_HERE"    ,$EmailAddr)
-                $Filename        = "Docker-Compose.yaml"
-
-                # Create file
-                [void]::(New-Item -ItemType "File" -name $Filename -Path $CreateLocation -Force)
-                [void]::(Add-Content -Path "$CreateLocation\Docker-Compose.yaml" -Value $ComposeContents)
-                Write-Host "OK"
-            }
-            catch
-            {
-                Write-host "Could not find compose files"
-            }
-
-            # Create Docker Run commands
-            try
-            {
-                Write-Host 'Creating "setup.commands" file ... ' -NoNewline
-                $SetupContents = $SetupContents.Replace("YOUR_NODENAME_GOES_HERE",$NodeName)
-                $Filename      = "setup.commands"
-                [void]::(New-Item -ItemType "File" -name $Filename -Path $CreateLocation -Force)
-                [void]::(Add-Content -Path "$CreateLocation\$Filename" -Value $SetupContents)
-                Write-Host "OK"
-            }
-            catch
-            {
-                Write-host "Could not find setup commands"
-            }
-
+        # Create Docker Run commands
+        try
+        {
+            Write-Host 'Creating "setup.commands" file ... ' -NoNewline
+            $SetupContents = $SetupContents.Replace("YOUR_NODENAME_GOES_HERE",$NodeName)
+            $Filename      = "setup.commands"
+            [void]::(New-Item -ItemType "File" -name $Filename -Path $CreateLocation -Force)
+            [void]::(Add-Content -Path "$CreateLocation\$Filename" -Value $SetupContents)
+            Write-Host "OK"
+        }
+        catch
+        {
+            Write-host "Could not find setup commands"
         }
         #endregion------------------------------------| DOCKER END |---------------------------------------------#
 
@@ -309,11 +309,9 @@ else
 Copy-item -Path $CSVPath -Destination "$DumpDirectory\$($Item.Name)"
 
 # Copy over docker related files
-if ($CreateDockerFiles)
-{
-    Get-Item $SetupCommandsFilePath | Copy-Item -Destination "$DumpDirectory\$($SetupContents.name)"   -Force
-    Get-Item $DockerComposeFilePath | Copy-Item -Destination "$DumpDirectory\$($ComposeContents.name)" -Force
-}
+Get-Item $SetupCommandsFilePath | Copy-Item -Destination "$DumpDirectory\$($SetupContents.name)"   -Force
+Get-Item $DockerComposeFilePath | Copy-Item -Destination "$DumpDirectory\$($ComposeContents.name)" -Force
+
 
 
 Write-Host "No opening Working directory: $WorkingDirectory"
