@@ -53,8 +53,8 @@ param
 # Make sure the template files are present
 try
 {
-    $SetupContents   = get-content -Path $SetupCommandsFilePath
-    $ComposeContents = get-content -Path $DockerComposeFilePath
+    $SetupContentsMaster   = get-content -Path $SetupCommandsFilePath
+    $ComposeContentsMaster = get-content -Path $DockerComposeFilePath
 }
 catch
 {
@@ -137,6 +137,8 @@ ForEach ($Row in $CSV)
     # Pull variables from CSV into shorthand variables
     $NodeName   = $Row.NODENAME
     $Token      = $Row.TOKEN
+    $SetupContents   = $SetupContentsMaster
+    $ComposeContents = $ComposeContentsMaster
 
     # Create and authorize the identity
     try
